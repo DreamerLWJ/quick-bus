@@ -4,6 +4,7 @@ import (
 	"binlog_agent/common/cerror"
 	"context"
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"log"
 	"sync"
 )
 
@@ -18,20 +19,16 @@ type OnEventHandler interface {
 	OnClose(err error, topic string) error
 }
 
-type EventBusTopicEntry struct {
-	Topic       string `json:"topic"`
-	Subscribers []Subscriber
-	sync.Mutex
-}
-
 type EventBus struct {
-	entries    cmap.ConcurrentMap[string, *EventBusTopicEntry]
+	entries    sync.Map
 	Ch         chan Event // channel transfer event
 	cancelFunc context.CancelFunc
 	CloseErr   error `json:"closeErr"`
+
+	logger log.Logger
 }
 
-func (e *EventBus) Init(ctx context.Context, initSize int) error {
+func (e *EventBus) Open(ctx context.Context, initSize int) error {
 	e.Ch = make(chan Event, initSize)
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	go func() {
@@ -43,6 +40,10 @@ func (e *EventBus) Init(ctx context.Context, initSize int) error {
 	}()
 	e.cancelFunc = cancelFunc
 	return nil
+}
+
+func (e *EventBus) AddTopic(ctx context.Context) error {
+
 }
 
 func (e *EventBus) Close() error {
@@ -74,7 +75,7 @@ func (e *EventBus) loopEvent(ctx context.Context) error {
 func (e *EventBus) Subscribe(topic string, subscriber Subscriber) error {
 	topicEntry, ok := e.entries.Get(topic)
 	if !ok {
-		topicEntry = &EventBusTopicEntry{
+		topicEntry = &TopicEntry{
 			Topic:       topic,
 			Subscribers: []Subscriber{subscriber},
 		}
@@ -133,7 +134,7 @@ func (e *EventBus) Send(event Event, topic string) error {
 }
 
 func NewEventBus() EventBus {
-	c := cmap.New[*EventBusTopicEntry]()
+	c := cmap.New[*TopicEntry]()
 	bus := EventBus{entries: c}
 	return bus
 }

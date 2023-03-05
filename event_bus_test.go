@@ -32,7 +32,7 @@ func (t TestTopicSubscriber) OnClose(err error, topic string) error {
 func TestEventBus_Subscribe(t *testing.T) {
 	ctx := context.Background()
 	bus := NewEventBus()
-	err := bus.Init(ctx, 10)
+	err := bus.Open(ctx, 10)
 	if err != nil {
 		panic(err)
 	}
